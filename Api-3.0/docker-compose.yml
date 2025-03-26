@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "9080:9080"
+    environment:
+      - DATABASE_URL=postgresql://sber_admin:securepass@db:5432/sber_api  # Меняем на 5432 (внутри сети Docker)
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=sber_admin
+      - POSTGRES_PASSWORD=securepass
+      - POSTGRES_DB=sber_api
+    ports:
+      - "5433:5432"  # Внешний порт 5433 (для доступа с хоста), внутренний 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sber_admin -d sber_api"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@sber.ru
+      - PGADMIN_DEFAULT_PASSWORD=adminpass
+    ports:
+      - "9081:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
