@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервис управления ВСП | СберБанк</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sber-primary: #21A038; /* Основной зеленый Сбера */
+            --sber-primary-dark: #1A8030;
+            --sber-secondary: #09a817;
+            --sber-light: #F5F7FA;
+            --sber-dark: #2D3748;
+            --sber-gray: #E2E8F0;
+            --sber-text: #1A202C;
+        }
+
+        body {
+            font-family: 'SBSansText', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--sber-light);
+            color: var(--sber-text);
+            padding: 0;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .sber-header {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+            margin-bottom: 30px;
+        }
+
+        .sber-logo {
+            height: 40px;
+        }
+
+        .sber-title {
+            color: var(--sber-primary);
+            font-weight: 600;
+            margin-left: 15px;
+            font-size: 1.5rem;
+        }
+
+        .sber-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: white;
+        }
+
+        .sber-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .sber-card-header {
+            background-color: var(--sber-primary);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 16px 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .sber-card-header i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        .btn-sber-primary {
+            background-color: var(--sber-primary);
+            border-color: var(--sber-primary);
+            color: white;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-sber-primary:hover {
+            background-color: var(--sber-primary-dark);
+            border-color: var(--sber-primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-sber-outline {
+            border: 1px solid var(--sber-primary);
+            color: var(--sber-primary);
+            background-color: transparent;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-sber-outline:hover {
+            background-color: rgba(33, 160, 56, 0.1);
+            color: var(--sber-primary-dark);
+        }
+
+        .nav-tabs .nav-link {
+            color: var(--sber-text);
+            font-weight: 500;
+            border: none;
+            padding: 12px 20px;
+            margin-right: 5px;
+            border-radius: 8px 8px 0 0;
+            background-color: transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-tabs .nav-link:hover {
+            background-color: rgba(33, 160, 56, 0.1);
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--sber-primary);
+            background-color: white;
+            font-weight: 600;
+            border-bottom: 3px solid var(--sber-primary);
+        }
+
+        .tab-content {
+            padding: 20px;
+            background-color: white;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid var(--sber-gray);
+            transition: all 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--sber-primary);
+            box-shadow: 0 0 0 3px rgba(33, 160, 56, 0.2);
+        }
+
+        .table {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table thead th {
+            background-color: var(--sber-primary);
+            color: white;
+            font-weight: 600;
+            padding: 12px 15px;
+        }
+
+        .table tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(33, 160, 56, 0.05);
+        }
+
+        .table tbody td {
+            padding: 12px 15px;
+            vertical-align: middle;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .loading-spinner .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.25em;
+            color: var(--sber-primary);
+        }
+
+        .loading-spinner p {
+            margin-top: 15px;
+            color: var(--sber-text);
+            font-weight: 500;
+        }
+
+        .badge-sber {
+            background-color: var(--sber-primary);
+            color: white;
+            font-weight: 500;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        /* Мобильная адаптация */
+        @media (max-width: 768px) {
+            .sber-title {
+                font-size: 1.2rem;
+                margin-left: 10px;
+            }
+
+            .sber-logo {
+                height: 30px;
+            }
+
+            .nav-tabs .nav-link {
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+
+            .search-container {
+                padding: 15px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+
+            .form-control, .form-select {
+                padding: 8px 12px;
+            }
+
+            .table thead th, .table tbody td {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+
+            .sber-card-header {
+                padding: 12px 15px;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .sber-header {
+                padding: 10px 0;
+            }
+
+            .nav-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                white-space: nowrap;
+                padding-bottom: 5px;
+            }
+
+            .nav-tabs .nav-link {
+                display: inline-block;
+                float: none;
+            }
+
+            .table-responsive {
+                border-radius: 0;
+            }
+
+            .tab-content {
+                padding: 15px 10px;
+            }
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--sber-gray);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--sber-primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--sber-primary-dark);
+        }
+
+        /* Модальное окно в стиле Сбера */
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            background-color: var(--sber-primary);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 16px 20px;
+        }
+
+        .modal-title {
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--sber-gray);
+            padding: 15px 20px;
+        }
+
+        .btn-close {
+            filter: invert(1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Шапка в стиле Сбера -->
+    <header class="sber-header">
+        <div class="container">
+            <div class="d-flex align-items-center">
+                <h1 class="sber-title mb-0">Сервис управления ВСП</h1>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mb-5">
+        <!-- Навигационные вкладки -->
+        <ul class="nav nav-tabs" id="apiTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="branches-tab" data-bs-toggle="tab" data-bs-target="#branches" type="button" role="tab">
+                    <i class="fas fa-building me-2"></i>ВСП
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="objects-tab" data-bs-toggle="tab" data-bs-target="#objects" type="button" role="tab">
+                    <i class="fas fa-layer-group me-2"></i>Объекты
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="plans-tab" data-bs-toggle="tab" data-bs-target="#plans" type="button" role="tab">
+                    <i class="fas fa-calendar-alt me-2"></i>Планы работ
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="works-tab" data-bs-toggle="tab" data-bs-target="#works" type="button" role="tab">
+                    <i class="fas fa-check-circle me-2"></i>Выполненные работы
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="attachments-tab" data-bs-toggle="tab" data-bs-target="#attachments" type="button" role="tab">
+                    <i class="fas fa-paperclip me-2"></i>Вложения
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types" type="button" role="tab">
+                     <i class="fas fa-tags me-2"></i>Типы объектов
+                </button>
+            </li>
+        </ul>
+
+        <!-- Содержимое вкладок -->
+        <div class="tab-content" id="apiTabsContent">
+            <!-- Вкладка ВСП -->
+            <div class="tab-pane fade show active" id="branches" role="tabpanel">
+                <div class="search-container fade-in">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" id="branchSearch" class="form-control" placeholder="Поиск по адресу или коду ВСП...">
+                                <button class="btn btn-sber-primary" id="searchBranchesBtn">
+                                    <i class="fas fa-search me-2"></i>Найти
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button class="btn btn-sber-outline" id="getAllBranchesBtn">
+                                <i class="fas fa-list me-2"></i>Все ВСП
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="loading-spinner" id="branchesLoading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных о ВСП...</p>
+                </div>
+
+                <div class="table-responsive fade-in">
+                    <table id="branchesTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Код ВСП</th>
+                                <th>Адрес</th>
+                                <th>Широта</th>
+                                <th>Долгота</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка Объекты -->
+            <div class="tab-pane fade" id="objects" role="tabpanel">
+                <div class="search-container fade-in">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" id="branchCodeForObjects" class="form-control" placeholder="Введите код ВСП...">
+                                <button class="btn btn-sber-primary" id="getObjectsBtn">
+                                    <i class="fas fa-search me-2"></i>Найти объекты
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <div class="loading-spinner" id="objectsLoading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных об объектах...</p>
+                </div>
+
+                <div class="table-responsive fade-in">
+                    <table id="objectsTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Код ВСП</th>
+                                <th>Тип объекта</th>
+                                <th>Название</th>
+                                <th>Площадь</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка Планы работ -->
+            <div class="tab-pane fade" id="plans" role="tabpanel">
+                <div class="search-container fade-in">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" id="branchCodeForPlans" class="form-control" placeholder="Введите код ВСП...">
+                                <button class="btn btn-sber-primary" id="getPlansBtn">
+                                    <i class="fas fa-search me-2"></i>Найти планы
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="loading-spinner" id="plansLoading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных о планах работ...</p>
+                </div>
+
+                <div class="table-responsive fade-in">
+                    <table id="plansTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Код ВСП</th>
+                                <th>ID объекта</th>
+                                <th>Тип работы</th>
+                                <th>Частота</th>
+                                <th>Следующая дата</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка Выполненные работы -->
+            <div class="tab-pane fade" id="works" role="tabpanel">
+                <div class="search-container fade-in">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" id="branchCodeForWorks" class="form-control" placeholder="Введите код ВСП...">
+                                <button class="btn btn-sber-primary" id="getWorksBtn">
+                                    <i class="fas fa-search me-2"></i>Найти работы
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="loading-spinner" id="worksLoading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных о выполненных работах...</p>
+                </div>
+
+                <div class="table-responsive fade-in">
+                    <table id="worksTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Код ВСП</th>
+                                <th>ID объекта</th>
+                                <th>Тип работы</th>
+                                <th>Дата выполнения</th>
+                                <th>Ответственный</th>
+                                <th>Примечания</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка Вложения -->
+            <div class="tab-pane fade" id="attachments" role="tabpanel">
+                <div class="search-container fade-in">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" id="branchCodeForAttachments" class="form-control" placeholder="Введите код ВСП...">
+                                <button class="btn btn-sber-primary" id="getAttachmentsBtn">
+                                    <i class="fas fa-search me-2"></i>Найти
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-filter"></i></span>
+                                <select id="attachmentTypeFilter" class="form-select">
+                                    <option value="">Все типы</option>
+                                    <option value="photo">Фото</option>
+                                    <option value="scheme">Схема</option>
+                                    <option value="plan">План</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="loading-spinner" id="attachmentsLoading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных о вложениях...</p>
+                </div>
+
+                <div class="table-responsive fade-in">
+                    <table id="attachmentsTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Код ВСП</th>
+                                <th>ID объекта</th>
+                                <th>Тип файла</th>
+                                <th>URL</th>
+                                <th>Дата загрузки</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Вкладка Типы объектов -->
+<div class="tab-pane fade" id="types" role="tabpanel">
+    <div class="search-container fade-in">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                    <input type="text" id="typeSearch" class="form-control" placeholder="Поиск по названию типа...">
+                    <button class="btn btn-sber-primary" id="searchTypesBtn">
+                        <i class="fas fa-search me-2"></i>Найти
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <button class="btn btn-sber-outline" id="getAllTypesBtn">
+                    <i class="fas fa-list me-2"></i>Все типы
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-spinner" id="typesLoading">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+        </div>
+        <p>Загрузка данных о типах объектов...</p>
+    </div>
+
+    <div class="table-responsive fade-in">
+        <table id="typesTable" class="table table-hover" style="width:100%">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название типа</th>
+                    <th>Единица измерения</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+    </div>
+
+    <!-- Модальное окно для просмотра вложений -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-paperclip me-2"></i>Просмотр вложения</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="filePreviewContainer">
+                        <img id="modalImage" src="" class="img-fluid rounded" alt="Превью вложения" style="max-height: 60vh;">
+                        <div id="documentPreview" class="d-none">
+                            <iframe id="documentFrame" src="" style="width: 100%; height: 60vh; border: none;"></iframe>
+                        </div>
+                        <div id="unsupportedPreview" class="d-none py-5">
+                            <i class="fas fa-file-alt fa-5x text-muted mb-3"></i>
+                            <h5>Просмотр этого типа файла не поддерживается</h5>
+                            <p>Пожалуйста, скачайте файл для просмотра</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sber-outline" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Закрыть
+                    </button>
+                    <a id="downloadLink" href="#" class="btn btn-sber-primary" download>
+                        <i class="fas fa-download me-2"></i>Скачать
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Инициализация DataTables с русской локализацией
+            const initDataTable = (tableId, columns) => {
+                return $(tableId).DataTable({
+                    language: {
+                        url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/ru.json'
+                    },
+                    autoWidth: false,
+                    columns: columns,
+                    dom: '<"top"f>rt<"bottom"lip><"clear">',
+                    responsive: true
+                });
+            };
+
+            const branchesTable = initDataTable('#branchesTable', [
+                { data: 'id' },
+                { data: 'internal_code' },
+                { data: 'address' },
+                { data: 'latitude' },
+                { data: 'longitude' }
+            ]);
+
+            const objectsTable = initDataTable('#objectsTable', [
+                { data: 'id' },
+                { data: 'branch_code' },
+                { data: 'object_type_name' },
+                { data: 'name' },
+                { data: 'area' },
+                { data: 'description' }
+            ]);
+
+            const plansTable = initDataTable('#plansTable', [
+                { data: 'id' },
+                { data: 'branch_code' },
+                { data: 'object_id' },
+                { data: 'work_type' },
+                { data: 'frequency' },
+                {
+                    data: 'next_maintenance_date',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleString() : '-';
+                    }
+                }
+            ]);
+
+            const worksTable = initDataTable('#worksTable', [
+                { data: 'id' },
+                { data: 'branch_code' },
+                { data: 'object_id' },
+                { data: 'work_type' },
+                {
+                    data: 'completion_date',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleString() : '-';
+                    }
+                },
+                { data: 'responsible_person' },
+                {
+                    data: 'notes',
+                    render: function(data) {
+                        return data || '-';
+                    }
+                }
+            ]);
+
+            const attachmentsTable = initDataTable('#attachmentsTable', [
+                { data: 'id' },
+                { data: 'branch_code' },
+                { data: 'object_id' },
+                {
+                    data: 'file_type',
+                    render: function(data) {
+                        const icons = {
+                            'photo': 'fa-image',
+                            'scheme': 'fa-project-diagram',
+                            'plan': 'fa-map'
+                        };
+                        const icon = icons[data] || 'fa-file';
+                        return `<i class="fas ${icon} me-2"></i>${data}`;
+                    }
+                },
+                {
+                    data: 'file_url',
+                    render: function(data) {
+                        return `<a href="${data}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">${data}</a>`;
+                    }
+                },
+                {
+                    data: 'uploaded_at',
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleString() : '-';
+                    }
+                },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        return `
+                            <button class="btn btn-sm btn-sber-primary view-attachment" data-url="${row.file_url}" data-type="${row.file_type}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        `;
+                    },
+                    orderable: false
+                }
+            ]);
+
+            // Обработчики событий
+            $('#searchBranchesBtn').click(function() {
+                const searchTerm = $('#branchSearch').val();
+                fetchBranches(searchTerm);
+            });
+
+            $('#getAllBranchesBtn').click(function() {
+                $('#branchSearch').val('');
+                fetchBranches('');
+            });
+
+            $('#getObjectsBtn').click(function() {
+                const branchCode = $('#branchCodeForObjects').val();
+                if (branchCode) {
+                    fetchObjects(branchCode);
+                } else {
+                    showAlert('Пожалуйста, введите код ВСП', 'warning');
+                }
+            });
+
+            $('#getPlansBtn').click(function() {
+                const branchCode = $('#branchCodeForPlans').val();
+                if (branchCode) {
+                    fetchPlans(branchCode);
+                } else {
+                    showAlert('Пожалуйста, введите код ВСП', 'warning');
+                }
+            });
+
+            $('#getWorksBtn').click(function() {
+                const branchCode = $('#branchCodeForWorks').val();
+                if (branchCode) {
+                    fetchWorks(branchCode);
+                } else {
+                    showAlert('Пожалуйста, введите код ВСП', 'warning');
+                }
+            });
+
+            $('#getAttachmentsBtn').click(function() {
+                const branchCode = $('#branchCodeForAttachments').val();
+                const fileType = $('#attachmentTypeFilter').val();
+                if (branchCode) {
+                    fetchAttachments(branchCode, fileType || undefined);
+                } else {
+                    showAlert('Пожалуйста, введите код ВСП', 'warning');
+                }
+            });
+
+            // Просмотр вложения в модальном окне
+            $(document).on('click', '.view-attachment', function() {
+                const url = $(this).data('url');
+                const type = $(this).data('type');
+                const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+                const documentExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+                const extension = url.substring(url.lastIndexOf('.')).toLowerCase();
+
+                $('#modalImage').hide().attr('src', '');
+                $('#documentPreview').addClass('d-none').find('#documentFrame').attr('src', '');
+                $('#unsupportedPreview').addClass('d-none');
+
+                $('#downloadLink').attr('href', url);
+
+                if (imageExtensions.includes(extension)) {
+                    $('#modalImage').attr('src', url).show();
+                } else if (extension === '.pdf') {
+                    $('#documentFrame').attr('src', url);
+                    $('#documentPreview').removeClass('d-none');
+                } else if (documentExtensions.includes(extension)) {
+                    $('#unsupportedPreview').removeClass('d-none');
+                } else {
+                    $('#unsupportedPreview').removeClass('d-none');
+                }
+
+                imageModal.show();
+            });
+
+            // Функции для загрузки данных
+            function fetchBranches(searchTerm = '') {
+                $('#branchesLoading').show();
+                branchesTable.clear().draw();
+
+                $.get(`/api/branches?search=${encodeURIComponent(searchTerm)}`, function(data) {
+                    branchesTable.rows.add(data).draw();
+                    $('#branchesLoading').hide();
+                    animateElements();
+                }).fail(function(error) {
+                    showAlert('Ошибка при загрузке ВСП: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+                    $('#branchesLoading').hide();
+                });
+            }
+
+            function fetchObjects(branchCode) {
+                $('#objectsLoading').show();
+                objectsTable.clear().draw();
+
+                $.get(`/api/branches/by-code/${encodeURIComponent(branchCode)}/objects`, function(data) {
+                    const transformedData = data.map(item => ({
+                        ...item,
+                        object_type_name: item.object_type_id // Заменить на фактическое название типа, если доступно
+                    }));
+                    objectsTable.rows.add(transformedData).draw();
+                    $('#objectsLoading').hide();
+                    animateElements();
+                }).fail(function(error) {
+                    showAlert('Ошибка при загрузке объектов: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+                    $('#objectsLoading').hide();
+                });
+            }
+
+            function fetchPlans(branchCode) {
+                $('#plansLoading').show();
+                plansTable.clear().draw();
+
+                $.get(`/api/branches/by-code/${encodeURIComponent(branchCode)}/plans`, function(data) {
+                    plansTable.rows.add(data).draw();
+                    $('#plansLoading').hide();
+                    animateElements();
+                }).fail(function(error) {
+                    showAlert('Ошибка при загрузке планов: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+                    $('#plansLoading').hide();
+                });
+            }
+
+            function fetchWorks(branchCode) {
+                $('#worksLoading').show();
+                worksTable.clear().draw();
+
+                $.get(`/api/branches/by-code/${encodeURIComponent(branchCode)}/completed-works`, function(data) {
+                    worksTable.rows.add(data).draw();
+                    $('#worksLoading').hide();
+                    animateElements();
+                }).fail(function(error) {
+                    showAlert('Ошибка при загрузке работ: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+                    $('#worksLoading').hide();
+                });
+            }
+
+            // Инициализация таблицы типов объектов
+const typesTable = initDataTable('#typesTable', [
+    { data: 'id' },
+    { data: 'name' },
+    { data: 'measure_unit' }
+]);
+
+// Обработчики событий для вкладки типов объектов
+$('#searchTypesBtn').click(function() {
+    const searchTerm = $('#typeSearch').val();
+    fetchTypes(searchTerm);
+});
+
+$('#getAllTypesBtn').click(function() {
+    $('#typeSearch').val('');
+    fetchTypes('');
+});
+
+// Функция для загрузки типов объектов
+function fetchTypes(searchTerm = '') {
+    $('#typesLoading').show();
+    typesTable.clear().draw();
+
+    $.get(`/api/object-types?search=${encodeURIComponent(searchTerm)}`, function(data) {
+        typesTable.rows.add(data).draw();
+        $('#typesLoading').hide();
+        animateElements();
+    }).fail(function(error) {
+        showAlert('Ошибка при загрузке типов объектов: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+        $('#typesLoading').hide();
+    });
+}
+
+            function fetchAttachments(branchCode, fileType) {
+                $('#attachmentsLoading').show();
+                attachmentsTable.clear().draw();
+
+                let url = `/api/branches/by-code/${encodeURIComponent(branchCode)}/attachments`;
+                if (fileType) {
+                    url += `?file_type=${encodeURIComponent(fileType)}`;
+                }
+
+                $.get(url, function(data) {
+                    attachmentsTable.rows.add(data).draw();
+                    $('#attachmentsLoading').hide();
+                    animateElements();
+                }).fail(function(error) {
+                    showAlert('Ошибка при загрузке вложений: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+                    $('#attachmentsLoading').hide();
+                });
+            }
+
+            // Вспомогательные функции
+            function showAlert(message, type = 'info') {
+                const alert = $(`
+                    <div class="alert alert-${type} alert-dismissible fade show position-fixed"
+                         style="position: fixed; top: 20px; right: 20px; z-index: 1100; min-width: 300px;">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+
+                $('body').append(alert);
+                setTimeout(() => {
+                    alert.alert('close');
+                }, 5000);
+            }
+
+            function animateElements() {
+                $('.fade-in').css('opacity', 0).each(function(index) {
+                    $(this).delay(100 * index).animate({ opacity: 1 }, 300);
+                });
+            }
+
+            // Загрузить все ВСП при первой загрузке
+            fetchBranches();
+        });
+    </script>
+</body>
+</html>
