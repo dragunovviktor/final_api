@@ -505,13 +505,11 @@ async def upload_file_to_branch(
 
     return db_attachment
 
-
-# Эндпоинт для скачивания файла
 @app.get("/api/branches/{branch_code}/attachments/{attachment_id}/download")
 async def download_branch_attachment(
         branch_code: str,
         attachment_id: int,
-        preview: bool = False,  # Добавляем параметр preview
+        preview: bool = False,
         db: Session = Depends(get_db)
 ):
     try:
@@ -556,6 +554,10 @@ async def download_branch_attachment(
         if preview and media_type.startswith('image/'):
             return FileResponse(file_path, media_type=media_type)
 
+        # Кодируем имя файла для Content-Disposition
+        from urllib.parse import quote
+        filename = quote(attachment.original_filename)
+
         # Для скачивания возвращаем файл с заголовком Content-Disposition
         async with aiofiles.open(file_path, mode='rb') as file:
             contents = await file.read()
@@ -564,7 +566,7 @@ async def download_branch_attachment(
             content=contents,
             media_type=media_type,
             headers={
-                "Content-Disposition": f"attachment; filename={attachment.original_filename}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
             }
         )
 
@@ -573,7 +575,6 @@ async def download_branch_attachment(
             status_code=500,
             detail=f"Ошибка при скачивании файла: {str(e)}"
         )
-
 
 
 
