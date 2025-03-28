@@ -10,13 +10,20 @@ import uuid
 from typing import List, Optional, Union
 from fastapi.templating import Jinja2Templates
 from dateutil.parser import parse
+from fastapi import UploadFile, File, HTTPException, Form, status
+from fastapi.responses import FileResponse
+from pathlib import Path
+from fastapi import Response
+import aiofiles
+import uuid
 
 DATABASE_URL = "postgresql://sber_admin:securepass@db:5432/sber_api"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Модели базы данных
 class Branch(Base):
@@ -71,8 +78,9 @@ class BranchAttachment(Base):
     id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"))
     object_id = Column(Integer, ForeignKey("branch_objects.id"), nullable=True)
-    file_type = Column(String)  # фото, схема, план
+    file_type = Column(String)
     file_url = Column(String)
+    original_filename = Column(String)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -122,16 +130,16 @@ class BranchResponse(BranchBase):
 
 class AttachmentResponse(BaseModel):
     id: int
-    branch_id: int  # Храним ID, но в ответ добавляем код
-    branch_code: str = Field(..., alias="branch.internal_code")  # Получаем код из связи
+    branch_id: Optional[int] = None  # Make it optional
+    branch_code: Optional[str] = None  # Add branch_code if needed
     object_id: Optional[int]
     file_type: str
     file_url: str
+    original_filename: str
     uploaded_at: datetime
 
     class Config:
         orm_mode = True
-        allow_population_by_field_name = True
 
 class AttachmentCreate(BaseModel):
     branch_code: str
@@ -146,6 +154,17 @@ class ObjectCreate(BaseModel):
     name: str
     area: str
     description: Optional[str] = None
+
+class ObjectResponse(BaseModel):
+    id: int
+    branch_code: str
+    object_type_id: int
+    name: str
+    area: str
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
 
 class MaintenancePlanCreate(BaseModel):
     branch_code: str
@@ -216,6 +235,8 @@ def get_db():
         db.close()
 
 templates = Jinja2Templates(directory="templates")
+
+Base.metadata.create_all(bind=engine)
 
 @app.get("/api_ui", include_in_schema=False)
 async def get_api_info(request: Request):
@@ -348,6 +369,9 @@ def update_branch(branch_id: int, branch: BranchCreate, db: Session = Depends(ge
     db.refresh(db_branch)
     return db_branch
 
+@app.get("/", include_in_schema=False)
+async def file_upload_page(request: Request):
+    return templates.TemplateResponse("apple_style_upload.html", {"request": request})
 
 @app.post("/api/objects", response_model=ObjectCreate)
 def create_object(obj: ObjectCreate, db: Session = Depends(get_db)):
@@ -412,6 +436,247 @@ def create_maintenance_plan(plan: MaintenancePlanCreate, db: Session = Depends(g
         "frequency": db_plan.frequency,
         "next_maintenance_date": db_plan.next_maintenance_date
     }
+
+
+@app.post("/api/branches/{branch_code}/attachments/", response_model=AttachmentResponse)
+async def upload_file_to_branch(
+        branch_code: str,
+        file_type: str = Form("other"),
+        object_id: Optional[int] = Form(None),
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db)
+):
+    """
+    Загружает файл и привязывает его к филиалу
+
+    Параметры:
+    - branch_code: Код филиала (ВСП)
+    - file_type: Тип файла (photo, document, plan)
+    - object_id: ID объекта (опционально)
+    - file: Загружаемый файл
+    """
+    # Проверяем существование филиала
+    branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Филиал с кодом {branch_code} не найден"
+        )
+
+    # Если указан object_id, проверяем существование объекта
+    if object_id:
+        obj = db.query(BranchObject).filter(
+            BranchObject.id == object_id,
+            BranchObject.branch_id == branch.id
+        ).first()
+        if not obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Объект с ID {object_id} не найден в филиале {branch_code}"
+            )
+
+    # Генерируем уникальное имя файла
+    file_ext = Path(file.filename).suffix
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+
+    # Сохраняем файл на диск
+    try:
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при сохранении файла: {str(e)}"
+        )
+
+    # Сохраняем информацию о файле в БД
+    db_attachment = BranchAttachment(
+        branch_id=branch.id,
+        object_id=object_id,
+        file_type=file_type,
+        file_url=unique_filename,
+        original_filename=file.filename
+    )
+
+    db.add(db_attachment)
+    db.commit()
+    db.refresh(db_attachment)
+
+    return db_attachment
+
+
+# Эндпоинт для скачивания файла
+@app.get("/api/branches/{branch_code}/attachments/{attachment_id}/download")
+async def download_branch_attachment(
+        branch_code: str,
+        attachment_id: int,
+        preview: bool = False,  # Добавляем параметр preview
+        db: Session = Depends(get_db)
+):
+    try:
+        # Проверяем существование филиала
+        branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
+        if not branch:
+            raise HTTPException(status_code=404, detail="Филиал не найден")
+
+        # Проверяем существование вложения
+        attachment = db.query(BranchAttachment).filter(
+            BranchAttachment.id == attachment_id,
+            BranchAttachment.branch_id == branch.id
+        ).first()
+
+        if not attachment:
+            raise HTTPException(status_code=404, detail="Вложение не найдено")
+
+        # Формируем путь к файлу
+        file_path = os.path.join(UPLOAD_DIR, attachment.file_url)
+
+        # Проверяем существование файла
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Файл не найден на сервере")
+
+        # Определяем MIME-тип
+        file_ext = Path(attachment.file_url).suffix.lower()
+        media_type = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.bmp': 'image/bmp',
+            '.pdf': 'application/pdf',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.xls': 'application/vnd.ms-excel',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }.get(file_ext, 'application/octet-stream')
+
+        # Для предпросмотра изображений возвращаем изображение напрямую
+        if preview and media_type.startswith('image/'):
+            return FileResponse(file_path, media_type=media_type)
+
+        # Для скачивания возвращаем файл с заголовком Content-Disposition
+        async with aiofiles.open(file_path, mode='rb') as file:
+            contents = await file.read()
+
+        return Response(
+            content=contents,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={attachment.original_filename}"
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при скачивании файла: {str(e)}"
+        )
+
+
+
+
+# Эндпоинт для получения списка файлов филиала
+@app.get("/api/branches/{branch_code}/attachments/",
+         response_model=List[AttachmentResponse])
+def get_branch_attachments(
+        branch_code: str,
+        object_id: Optional[int] = None,
+        file_type: Optional[str] = None,
+        db: Session = Depends(get_db)
+):
+    """
+    Получает список всех файлов, привязанных к филиалу.
+
+    Параметры:
+    - branch_code: internal_code филиала (ВСП)
+    - object_id: фильтр по ID объекта (опционально)
+    - file_type: фильтр по типу файла (опционально)
+    """
+    branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Филиал с кодом {branch_code} не найден"
+        )
+
+    query = db.query(BranchAttachment).filter(
+        BranchAttachment.branch_id == branch.id
+    )
+
+    if object_id is not None:
+        query = query.filter(BranchAttachment.object_id == object_id)
+
+    if file_type is not None:
+        query = query.filter(BranchAttachment.file_type == file_type)
+
+    attachments = query.all()
+
+    return [{
+        "id": a.id,
+        "branch_code": branch_code,
+        "object_id": a.object_id,
+        "file_type": a.file_type,
+        "file_url": f"/api/branches/{branch_code}/attachments/{a.id}/download",
+        "original_filename": a.original_filename,
+        "uploaded_at": a.uploaded_at
+    } for a in attachments]
+
+@app.get("/file-upload", include_in_schema=False)
+async def file_upload_page(request: Request):
+    return templates.TemplateResponse("file_upload.html", {"request": request})
+
+# Эндпоинт для удаления файла
+@app.delete("/api/branches/{branch_code}/attachments/{attachment_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_branch_attachment(
+        branch_code: str,
+        attachment_id: int,
+        db: Session = Depends(get_db)
+):
+    """
+    Удаляет файл филиала
+
+    Параметры:
+    - branch_code: Код филиала (ВСП)
+    - attachment_id: ID вложения
+    """
+    # Проверяем существование филиала
+    branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Филиал с кодом {branch_code} не найден"
+        )
+
+    # Проверяем существование вложения
+    attachment = db.query(BranchAttachment).filter(
+        BranchAttachment.id == attachment_id,
+        BranchAttachment.branch_id == branch.id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Вложение не найдено"
+        )
+
+    # Удаляем файл с диска
+    file_path = os.path.join(UPLOAD_DIR, attachment.file_url)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при удалении файла: {str(e)}"
+        )
+
+    # Удаляем запись из БД
+    db.delete(attachment)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/api/completed-works", response_model=CompletedWorkResponse)
@@ -506,7 +771,7 @@ def search_branches(search: str = "", db: Session = Depends(get_db)):
         for branch in branches
     ]
 
-@app.get("/api/branches/by-code/{branch_code}/objects", response_model=List[ObjectCreate])
+@app.get("/api/branches/by-code/{branch_code}/objects", response_model=List[ObjectResponse])
 def get_branch_objects_by_code(branch_code: str, db: Session = Depends(get_db)):
     branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
     if not branch:
@@ -515,6 +780,7 @@ def get_branch_objects_by_code(branch_code: str, db: Session = Depends(get_db)):
     objects = db.query(BranchObject).filter(BranchObject.branch_id == branch.id).all()
     return [
         {
+            "id": obj.id,  # Добавляем ID
             "branch_code": branch_code,
             "object_type_id": obj.object_type_id,
             "name": obj.name,
@@ -577,27 +843,7 @@ def get_branch_completed_works_by_code(branch_code: str, db: Session = Depends(g
         for work in works
     ]
 
-@app.get("/api/branches/by-code/{branch_code}/attachments", response_model=List[dict])
-def get_branch_attachments_by_code(branch_code: str, db: Session = Depends(get_db)):
-    # Сначала находим филиал по его коду
-    branch = db.query(Branch).filter(Branch.internal_code == branch_code).first()
-    if not branch:
-        raise HTTPException(status_code=404, detail="Филиал с указанным кодом не найден")
-    
-    # Затем получаем все вложения для этого филиала
-    attachments = db.query(BranchAttachment).filter(BranchAttachment.branch_id == branch.id).all()
-    
-    return [
-        {
-            "id": attachment.id,
-            "branch_code": branch_code,  # Возвращаем код вместо ID
-            "object_id": attachment.object_id,
-            "file_type": attachment.file_type,
-            "file_url": attachment.file_url,
-            "uploaded_at": attachment.uploaded_at
-        }
-        for attachment in attachments
-    ]
+
 
 @app.get("/api/nlp-query")
 def process_nlp_query(query: str, db: Session = Depends(get_db)):

@@ -414,7 +414,6 @@
                     <table id="branchesTable" class="table table-hover" style="width:100%">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Код ВСП</th>
                                 <th>Адрес</th>
                                 <th>Широта</th>
@@ -495,7 +494,6 @@
                     <table id="plansTable" class="table table-hover" style="width:100%">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Код ВСП</th>
                                 <th>ID объекта</th>
                                 <th>Тип работы</th>
@@ -535,7 +533,6 @@
                     <table id="worksTable" class="table table-hover" style="width:100%">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Код ВСП</th>
                                 <th>ID объекта</th>
                                 <th>Тип работы</th>
@@ -645,37 +642,42 @@
     </div>
 
     <!-- Модальное окно для просмотра вложений -->
-    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-paperclip me-2"></i>Просмотр вложения</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <div id="filePreviewContainer">
-                        <img id="modalImage" src="" class="img-fluid rounded" alt="Превью вложения" style="max-height: 60vh;">
-                        <div id="documentPreview" class="d-none">
-                            <iframe id="documentFrame" src="" style="width: 100%; height: 60vh; border: none;"></iframe>
-                        </div>
-                        <div id="unsupportedPreview" class="d-none py-5">
-                            <i class="fas fa-file-alt fa-5x text-muted mb-3"></i>
-                            <h5>Просмотр этого типа файла не поддерживается</h5>
-                            <p>Пожалуйста, скачайте файл для просмотра</p>
-                        </div>
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-paperclip me-2"></i>Просмотр вложения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="filePreviewContainer">
+                    <!-- Для изображений -->
+                    <img id="modalImage" src="" class="img-fluid rounded" alt="Превью вложения" style="max-height: 60vh; display: none;">
+
+                    <!-- Для PDF и документов -->
+                    <div id="documentPreview" class="d-none" style="height: 60vh;">
+                        <iframe id="documentFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                    </div>
+
+                    <!-- Для неподдерживаемых типов -->
+                    <div id="unsupportedPreview" class="d-none py-5">
+                        <i class="fas fa-file-alt fa-5x text-muted mb-3"></i>
+                        <h5>Просмотр этого типа файла не поддерживается</h5>
+                        <p>Пожалуйста, скачайте файл для просмотра</p>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sber-outline" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i>Закрыть
-                    </button>
-                    <a id="downloadLink" href="#" class="btn btn-sber-primary" download>
-                        <i class="fas fa-download me-2"></i>Скачать
-                    </a>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sber-outline" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Закрыть
+                </button>
+                <a id="downloadLink" href="#" class="btn btn-sber-primary" download>
+                    <i class="fas fa-download me-2"></i>Скачать
+                </a>
             </div>
         </div>
     </div>
+</div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -697,12 +699,13 @@
             };
 
             const branchesTable = initDataTable('#branchesTable', [
-                { data: 'id' },
-                { data: 'internal_code' },
-                { data: 'address' },
-                { data: 'latitude' },
-                { data: 'longitude' }
+                { data: 'internal_code', title: 'Код ВСП' },
+                { data: 'address', title: 'Адрес' },
+                { data: 'latitude', title: 'Широта' },
+                { data: 'longitude', title: 'Долгота' }
             ]);
+
+
 
             const objectsTable = initDataTable('#objectsTable', [
                 { data: 'id' },
@@ -714,7 +717,6 @@
             ]);
 
             const plansTable = initDataTable('#plansTable', [
-                { data: 'id' },
                 { data: 'branch_code' },
                 { data: 'object_id' },
                 { data: 'work_type' },
@@ -728,7 +730,6 @@
             ]);
 
             const worksTable = initDataTable('#worksTable', [
-                { data: 'id' },
                 { data: 'branch_code' },
                 { data: 'object_id' },
                 { data: 'work_type' },
@@ -747,46 +748,64 @@
                 }
             ]);
 
-            const attachmentsTable = initDataTable('#attachmentsTable', [
-                { data: 'id' },
-                { data: 'branch_code' },
-                { data: 'object_id' },
-                {
-                    data: 'file_type',
-                    render: function(data) {
-                        const icons = {
-                            'photo': 'fa-image',
-                            'scheme': 'fa-project-diagram',
-                            'plan': 'fa-map'
-                        };
-                        const icon = icons[data] || 'fa-file';
-                        return `<i class="fas ${icon} me-2"></i>${data}`;
-                    }
-                },
-                {
-                    data: 'file_url',
-                    render: function(data) {
-                        return `<a href="${data}" target="_blank" class="text-truncate d-inline-block" style="max-width: 150px;">${data}</a>`;
-                    }
-                },
-                {
-                    data: 'uploaded_at',
-                    render: function(data) {
-                        return data ? new Date(data).toLocaleString() : '-';
-                    }
-                },
-                {
-                    data: null,
-                    render: function(data, type, row) {
-                        return `
-                            <button class="btn btn-sm btn-sber-primary view-attachment" data-url="${row.file_url}" data-type="${row.file_type}">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        `;
-                    },
-                    orderable: false
-                }
-            ]);
+const attachmentsTable = initDataTable('#attachmentsTable', [
+    { data: 'id' },
+    { data: 'branch_code' },
+    {
+        data: 'object_id',
+        render: function(data) {
+            return data || '-';
+        }
+    },
+    {
+        data: 'file_type',
+        render: function(data) {
+            const icons = {
+                'photo': 'fa-image',
+                'scheme': 'fa-project-diagram',
+                'plan': 'fa-map',
+                'document': 'fa-file-alt'
+            };
+            const icon = icons[data] || 'fa-file';
+            return `<i class="fas ${icon} me-2"></i>${data}`;
+        }
+    },
+    {
+        data: 'original_filename',
+        render: function(data) {
+            return data || '-';
+        }
+    },
+    {
+        data: 'uploaded_at',
+        render: function(data) {
+            return data ? new Date(data).toLocaleString() : '-';
+        }
+    },
+    {
+        data: null,
+        render: function(data, type, row) {
+            const downloadUrl = row.file_url;
+            return `
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-sber-primary view-attachment"
+                            data-id="${row.id}"
+                            data-branch="${row.branch_code}"
+                            data-type="${row.file_type}"
+                            data-filename="${row.original_filename}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <a href="${downloadUrl}"
+                       class="btn btn-sm btn-sber-outline"
+                       download="${row.original_filename}">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            `;
+        },
+        orderable: false
+    }
+]);
 
             // Обработчики событий
             $('#searchBranchesBtn').click(function() {
@@ -826,44 +845,61 @@
                 }
             });
 
-            $('#getAttachmentsBtn').click(function() {
-                const branchCode = $('#branchCodeForAttachments').val();
-                const fileType = $('#attachmentTypeFilter').val();
-                if (branchCode) {
-                    fetchAttachments(branchCode, fileType || undefined);
-                } else {
-                    showAlert('Пожалуйста, введите код ВСП', 'warning');
-                }
-            });
+$('#getAttachmentsBtn').click(function() {
+    const branchCode = $('#branchCodeForAttachments').val();
+    const fileType = $('#attachmentTypeFilter').val();
+    if (branchCode) {
+        fetchAttachments(branchCode, fileType || undefined);
+    } else {
+        showAlert('Пожалуйста, введите код ВСП', 'warning');
+    }
+});
 
             // Просмотр вложения в модальном окне
-            $(document).on('click', '.view-attachment', function() {
-                const url = $(this).data('url');
-                const type = $(this).data('type');
-                const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
-                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-                const documentExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
-                const extension = url.substring(url.lastIndexOf('.')).toLowerCase();
+            // Просмотр вложения в модальном окне
+$(document).on('click', '.view-attachment', function() {
+    const attachmentId = $(this).data('id');
+    const branchCode = $(this).data('branch');
+    const fileType = $(this).data('type');
+    const filename = $(this).data('filename');
+    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
 
-                $('#modalImage').hide().attr('src', '');
-                $('#documentPreview').addClass('d-none').find('#documentFrame').attr('src', '');
-                $('#unsupportedPreview').addClass('d-none');
+    // URL для скачивания файла
+    const downloadUrl = `/api/branches/${encodeURIComponent(branchCode)}/attachments/${attachmentId}/download`;
 
-                $('#downloadLink').attr('href', url);
+    // URL для прямого просмотра изображения (тот же, что и для скачивания)
+    const previewUrl = downloadUrl;
 
-                if (imageExtensions.includes(extension)) {
-                    $('#modalImage').attr('src', url).show();
-                } else if (extension === '.pdf') {
-                    $('#documentFrame').attr('src', url);
-                    $('#documentPreview').removeClass('d-none');
-                } else if (documentExtensions.includes(extension)) {
-                    $('#unsupportedPreview').removeClass('d-none');
-                } else {
-                    $('#unsupportedPreview').removeClass('d-none');
-                }
+    // Скрываем все превью
+    $('#modalImage').hide().attr('src', '');
+    $('#documentPreview').addClass('d-none').find('#documentFrame').attr('src', '');
+    $('#unsupportedPreview').addClass('d-none');
 
-                imageModal.show();
-            });
+    // Устанавливаем ссылку для скачивания
+    $('#downloadLink').attr('href', downloadUrl).attr('download', filename);
+
+    // Определяем тип файла
+    const isImage = ['photo', 'image'].includes(fileType.toLowerCase()) ||
+                   ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(filename.split('.').pop().toLowerCase());
+
+    if (isImage) {
+        // Для изображений
+        $('#modalImage').attr('src', previewUrl + '?preview=true').show();
+    } else if (fileType.toLowerCase() === 'pdf' || filename.toLowerCase().endsWith('.pdf')) {
+        // Для PDF
+        $('#documentFrame').attr('src', previewUrl);
+        $('#documentPreview').removeClass('d-none');
+    } else {
+        // Для других типов файлов
+        $('#unsupportedPreview').removeClass('d-none');
+    }
+
+    // Устанавливаем заголовок модального окна
+    $('.modal-title').html(`<i class="fas fa-paperclip me-2"></i>${filename}`);
+
+    // Показываем модальное окно
+    imageModal.show();
+});
 
             // Функции для загрузки данных
             function fetchBranches(searchTerm = '') {
@@ -959,24 +995,24 @@ function fetchTypes(searchTerm = '') {
     });
 }
 
-            function fetchAttachments(branchCode, fileType) {
-                $('#attachmentsLoading').show();
-                attachmentsTable.clear().draw();
+function fetchAttachments(branchCode, fileType) {
+    $('#attachmentsLoading').show();
+    attachmentsTable.clear().draw();
 
-                let url = `/api/branches/by-code/${encodeURIComponent(branchCode)}/attachments`;
-                if (fileType) {
-                    url += `?file_type=${encodeURIComponent(fileType)}`;
-                }
+    let url = `/api/branches/${encodeURIComponent(branchCode)}/attachments`;
+    if (fileType) {
+        url += `?file_type=${encodeURIComponent(fileType)}`;
+    }
 
-                $.get(url, function(data) {
-                    attachmentsTable.rows.add(data).draw();
-                    $('#attachmentsLoading').hide();
-                    animateElements();
-                }).fail(function(error) {
-                    showAlert('Ошибка при загрузке вложений: ' + (error.responseJSON?.detail || error.statusText), 'danger');
-                    $('#attachmentsLoading').hide();
-                });
-            }
+    $.get(url, function(data) {
+        attachmentsTable.rows.add(data).draw();
+        $('#attachmentsLoading').hide();
+        animateElements();
+    }).fail(function(error) {
+        showAlert('Ошибка при загрузке вложений: ' + (error.responseJSON?.detail || error.statusText), 'danger');
+        $('#attachmentsLoading').hide();
+    });
+}
 
             // Вспомогательные функции
             function showAlert(message, type = 'info') {
